@@ -81,9 +81,9 @@ int main() {
                 // }
                 bytesReceived = read(new_socket, buffer, sizeof(buffer));
                 ss << buffer;
-                std::cout << "debug2" << std::endl;
                 file << ss.rdbuf();
-                std::cout << "debug3" << std::endl;
+                std::string str = ss.str().c_str();
+                std::cout << str.size() << std::endl;
                 file.close();
             }
         }

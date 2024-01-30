@@ -14,7 +14,7 @@ int main() {
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
-    char buffer[4096] = {0};
+    char buffer[1024] = {0};
     const char *message = "Hello from server";
     char header[5];
 
@@ -67,18 +67,13 @@ int main() {
 
         read(new_socket, header, 4);
         header[4] = '\0';
-        if (strcmp(header, "FILE") == 0){
+        if (strcmp(header, "FILE!") == 0){
             std::cout << "file header is set" << std::endl;
             std::ofstream file("/Users/ojeongmin/Programming_study/Non_Wifi_Communication/test_dir/server/output.json", std::ios::binary);
             int bytesReceived;
             std::stringstream ss;
             if (file.is_open()) {
                 std::cout << "debug1" << std::endl;
-                // while ((bytesReceived = read(new_socket, buffer, sizeof(buffer))) > 0) {
-                //     ss << buffer;
-                //     file << ss.rdbuf();
-                //     std::cout << "debug2" << std::endl;
-                // }
                 bytesReceived = read(new_socket, buffer, sizeof(buffer));
                 ss << buffer;
                 file << ss.rdbuf();
@@ -88,10 +83,19 @@ int main() {
             }
         }
         else{
-            valread = read( new_socket , buffer, 4096);
-            printf("%s\n",buffer );
-            send(new_socket , message , strlen(message) , 0 );
+            uint32_t dataLength;
+            read(new_socket, &dataLength, sizeof(dataLength));
+            dataLength = ntohl(dataLength);
+            std::cout << "data len: " << dataLength << std::endl;
+            char* data_buffer = new char[dataLength + 1];
+            read(new_socket, data_buffer, dataLength);
+            data_buffer[dataLength] = '\0';
+
+            // valread = read(new_socket , data_buffer, 1024);
+            std::cout << "data buffer: " << data_buffer << std::endl;
+            send(new_socket , message , sizeof(message) , 0 );
             printf("Hello message sent\n");
+            delete[] data_buffer;
         }
         memset(buffer, 0, sizeof(buffer));
     }

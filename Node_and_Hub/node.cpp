@@ -1,7 +1,18 @@
 #include "./node.hpp"
 
-Node::Node(void){
-    
+Node::Node(std::string name, Department dep){
+    this->nodeInfo.userNmae = name;
+    this->nodeInfo.department = dep;
+}
+
+int Node::run(void){
+    while (true){
+        if ((this->sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            std::cout << "Socket creation error" << std::endl;
+            return -1;
+        }
+
+    }
 }
 
 void Node::setSocket(void) {

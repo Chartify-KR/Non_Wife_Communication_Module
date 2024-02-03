@@ -8,6 +8,9 @@
 
 class Node : public Device {
 
+private:
+    int hub_socket;
+
 public:
     Node(std::string name, Department dep);
 

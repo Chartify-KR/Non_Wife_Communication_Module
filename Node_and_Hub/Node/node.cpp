@@ -13,7 +13,15 @@ int Node::run(void){
         return -1;
     }
     while (true){
-        
+        int new_socket;
+
+        socklen_t client_addr_len = sizeof(this->client_addr);
+        std::cout << "Server is ready!" << std::endl;
+        new_socket = accept(this->sock_fd, (struct sockaddr *)&(this->client_addr), &client_addr_len);
+        if (new_socket < 0) {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
     }
     return 1;
 }

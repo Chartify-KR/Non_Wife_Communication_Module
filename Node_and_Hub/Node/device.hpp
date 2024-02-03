@@ -29,8 +29,10 @@ class Device {
 
     protected:
         struct sockaddr_in addr;
+        struct sockaddr_in client_addr;
         int sock_fd;
         int opt;
+        int local_socket;
         char *buffer;
         NodeInfo nodeInfo;
 

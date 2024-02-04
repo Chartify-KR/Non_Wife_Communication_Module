@@ -10,14 +10,17 @@ class Node : public Device {
 
 private:
     int hub_socket;
+    struct sockaddr_in hub_addr;
 
 public:
     Node(std::string name, Department dep);
 
 public:
     int run(void);
-    void sendData(const std::string& data) override;
-    void receiveData(const std::string& data) override;
+    void sendData(std::string &content, std::string &dataType) override;
+    // void sendTextData(std::string &string_content) override;
+    int setSocketForSend(void) override;
+    void receiveDataFromLocal() override;
 };
 
 

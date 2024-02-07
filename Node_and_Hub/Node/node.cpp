@@ -11,24 +11,58 @@ int Node::run(void){
         std::cerr << "Running socket is failed" << std::endl;
         return -1;
     }
+    if (this->setSocketForHub() == -1){
+        std::cerr << "send is failed" << std::endl;
+        exit(1);
+    }
+    std::string dataType;
+
     while (true){
         if (this->readySocket() == -1){
             std::cerr << "readySocket is failed" << std::endl;
         }
         // read header to know whether this message is from local or external and file or string.
-        if (this->readHeader() == 0){ // socket is from local
-            this->receiveDataFromLocal();                                                                                                                    
-        }else{ // socket is from external(hub)
-            //
+        this->readHeader();
+        dataType = this->receiveData();
+        char* content = new char[strlen(this->buffer) + 1];
+        strcpy(content, this->buffer);
+        delete this->buffer;
+        if (this->sender.compare("LOCAL") == 0){ // send to external
+            sendDataToHub(content, dataType);
+        }else{ // send to local
+            sendDataToLocal(content, dataType, );
         }
+
     }
     return 1;
 }
 
+int Node::readHeader(void){
+    std::string client_ip_str;
 
-int Node::setSocketForSend(void){
+    inet_ntop(AF_INET, &(this->local_addr.sin_addr), this->client_ip, INET_ADDRSTRLEN);
+    std::cout << "Client connected from " << this->client_ip << ":" << ntohs(this->local_addr.sin_port) << std::endl;
+    read(this->new_socket, this->header, 1);
+    this->header[4] = '\0';
+
+    // read length of data that client has sent. And then set the buffer.
+    read(this->new_socket, &(this->dataLength), sizeof(this->dataLength));
+    this->dataLength = ntohl(this->dataLength);
+    this->buffer = new char[this->dataLength + 1];
+    this->buffer[this->dataLength] = '\0';
+    client_ip_str = this->client_ip;
+    this->sender = "LOCAL";
+    if (this->new_socket == this->hub_socket){
+        this->sender = "HUB";
+        return 0;
+    }
+    return 1;
+}
+
+int Node::setSocketForHub(void){
     char* const hub_address_text = "??";
-
+    char ping[5] = "PING";
+    char pong[5];
     if ((this->hub_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         std::cerr << "Socket creation error" << std::endl;
         return -1;
@@ -43,24 +77,57 @@ int Node::setSocketForSend(void){
     if (connect(this->hub_socket, (struct sockaddr *)&(this->hub_addr), sizeof(this->hub_addr)) < 0){
         std::cerr << "Connection failed" << std::endl;
     }
+    send(this->hub_socket, ping, sizeof(ping), 0);
+    std::cout << "Ping is sended to Hub" << std::endl;
+    read(this->hub_socket, pong, sizeof(pong));
+    pong[4] = '\0';
+    if (strcmp(pong, "PONG") == 0){
+        std::cout << "Pong is sended from Hub";
+    }else{
+        std::cerr << "Hub: " << pong << ", connection failed" << std::endl;
+        exit(1);
+    }
     return 1;
 }
 
-void Node::sendData(std::string &content, std::string &dataType){
+void Node::sendDataToHub(const char* content, std::string &dataType){
     // 데이터 전송 로직 구현
-    if (this->setSocketForSend() == -1){
-        std::cerr << "send is failed" << std::endl;
-        delete this->buffer;
-        exit(1);
-    }
-    std::string dataType = "FILE";
     send(this->hub_socket, dataType.c_str(), dataType.size(), 0);
-    uint32_t dataLengthOfFile = htonl(this->dataLength);
-    send(this->hub_socket, &dataLengthOfFile, sizeof(dataLengthOfFile), 0);
-    send(this->hub_socket, content.c_str(), content.size(), 0);
-    delete this->buffer;
+    uint32_t dataLength = htonl(this->dataLength);
+    send(this->hub_socket, &dataLength, sizeof(dataLength), 0);
+    send(this->hub_socket, content, strlen(content), 0);
+    
 }
 
+std::string Node::receiveData(void){
+    // 데이터 수신 로직 구현
+    int bytesReceived;
+    // std::stringstream ss;
+    std::string dataType;
+    if (strcmp(this->header, "FILE") == 0){
+        dataType = "FILE";
+    }else if (strcmp(this->header, "TEXT") == 0){
+        dataType = "TEXT";
+    }
+    std::cout << "File header is set" << std::endl;
+    bytesReceived = read(this->local_socket, this->buffer, sizeof(buffer));
+    if (bytesReceived != this->dataLength){
+        std::cerr << "byteReceived: " << bytesReceived << "dataLength: " << this->dataLength << "which is not same" << std::endl;
+    }
+    // ss << this->buffer;
+    // if (!ss.eof()){
+    //     std::cout << "successively read File data" << std::endl;
+    // }
+    // std::string content = ss.str();
+    // dataType = "FILE";
+    // this->sendData(content, dataType);
+    return dataType;
+    //std::cout << "Node received data: " << data << std::endl;
+}
+
+// void Node::receiveDataFromExternal(void){
+
+// }
 
 // void Node::sendTextData(std::string &string_content){
 //     if (this->setSocketForSend() == -1){
@@ -71,40 +138,3 @@ void Node::sendData(std::string &content, std::string &dataType){
 //     std::string dataType = "TEXT";
 
 // }
-
-
-void Node::receiveDataFromLocal(void){
-    // 데이터 수신 로직 구현
-    int bytesReceived;
-    std::stringstream ss;
-    std::string dataType;
-    if (strcmp(this->header, "FILE") == 0){
-        std::cout << "File header is set" << std::endl;
-        bytesReceived = read(this->local_socket, this->buffer, sizeof(buffer));
-        if (bytesReceived != this->dataLength){
-            std::cerr << "byteReceived: " << bytesReceived << "dataLength: " << this->dataLength << "which is not same" << std::endl;
-        }
-        ss << this->buffer;
-        if (!ss.eof()){
-            std::cout << "successively read File data" << std::endl;
-        }
-        std::string content = ss.str();
-        dataType = "FILE";
-        this->sendData(content, dataType);
-        //std::ofstream file("/Users/ojeongmin/Programming_study/Non_Wifi_Communication/test_dir/server/output.json", std::ios::binary);
-    }else if (strcmp(this->header, "TEXT") == 0){
-        std::cout << "File header is set" << std::endl;
-        bytesReceived = read(this->local_socket, this->buffer, sizeof(buffer));
-        if (bytesReceived != this->dataLength){
-            std::cerr << "byteReceived: " << bytesReceived << "dataLength: " << this->dataLength << "which is not same" << std::endl;
-        }
-        ss << this->buffer;
-        if (!ss.eof()){
-            std::cout << "successively read Text data" << std::endl;
-        }
-        std::string content = ss.str();
-        dataType = "TEXT";
-        this->sendData(content, dataType);
-    }
-    //std::cout << "Node received data: " << data << std::endl;
-}

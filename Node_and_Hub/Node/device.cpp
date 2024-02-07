@@ -37,29 +37,7 @@ int Device::readySocket(void){
     return 1;
 }
 
-int Device::readHeader(void){
-    std::string client_ip_str;
 
-    inet_ntop(AF_INET, &(this->local_addr.sin_addr), this->client_ip, INET_ADDRSTRLEN);
-    std::cout << "Client connected from " << this->client_ip << ":" << ntohs(this->local_addr.sin_port) << std::endl;
-    read(this->new_socket, this->header, 1);
-    this->header[4] = '\0';
-
-    // read length of data that client has sent. And then set the buffer.
-    read(this->new_socket, &(this->dataLength), sizeof(this->dataLength));
-    this->dataLength = ntohl(this->dataLength);
-    this->buffer = new char[this->dataLength + 1];
-    this->buffer[this->dataLength] = '\0';
-    client_ip_str = this->client_ip;
-    if (client_ip_str.compare("127.0.0.1") == 0){
-        this->local_socket = this->new_socket;
-        this->external_socket = -1;
-        return 0;
-    }
-    this->external_socket = this->new_socket;
-    this->local_socket = -1;
-    return 1;
-}
 
 int Device::makeDirectory(void){
     std::string currentPath = this->nodeInfo.currentPath;

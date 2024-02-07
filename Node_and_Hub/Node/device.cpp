@@ -25,7 +25,7 @@
     }
 }
 
-int Device::readySocket(void){
+int Device::acceptSocket(void){
     socklen_t client_addr_len = sizeof(this->local_addr);
     std::cout << "Server is ready!" << std::endl; 
 

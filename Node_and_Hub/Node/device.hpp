@@ -17,6 +17,11 @@
 #define MAX_REQUEST_NUMBER 200
 #define LOCAL_SOCKET 1
 #define EXTERNAL_SOCKET 2
+#define LOCALPORT 8080
+#define HUBPORT 8081
+
+
+
 enum Department{
     PreExamination = 1,
     MainExamination = 2
@@ -25,7 +30,6 @@ enum Department{
 
 typedef struct nodeInfo_s{
     std::string ip;
-    int port;
     std::filesystem::path currentPath;
     std::string userNmae;
     Department department;
@@ -53,11 +57,12 @@ class Device {
 
         virtual int run(void) = 0;
         int setSocket(void);
-        int readySocket(void);
+        virtual int setSocketForLocal(void) = 0;
+        int acceptSocket(void);
         int makeDirectory(void);
         // 데이터를 전송하는 함수
         virtual int readHeader(void) = 0;
-        virtual void sendDataToLocal(const char* content, std::string &dataType, int &dest_socket) = 0;
+        virtual void sendDataToLocal(const char* content, std::string &dataType) = 0;
         virtual void sendDataToHub(const char* content, std::string &dataType) = 0;
         // virtual void sendTextData(std::string &string_content) = 0;
         // 데이터를 수신하는 함수

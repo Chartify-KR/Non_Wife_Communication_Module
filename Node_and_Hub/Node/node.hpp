@@ -17,11 +17,12 @@ public:
 
 public:
     int run(void);
-    void sendDataToLocal(const char* content, std::string &dataType, int &dest_socket) override;
+    void sendDataToLocal(const char* content, std::string &dataType) override;
     void sendDataToHub(const char* content, std::string &dataType) override;
     // void sendTextData(std::string &string_content) override;
 
     int setSocketForHub(void);
+    int setSocketForLocal(void) override;
     int readHeader(void) override;
     std::string receiveData(void) override;
     // void receiveDataFromExternal(void) override;

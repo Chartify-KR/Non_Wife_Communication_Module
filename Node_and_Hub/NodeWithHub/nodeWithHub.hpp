@@ -9,9 +9,9 @@
 class NodeWithHub : public Device {
 
 private:
-    struct sockaddr_in hub_addr;
+    struct sockaddr_in node_addr;
     std::string hubIp;
-    int hub_socket;
+    int node_socket;
     std::string myIp;
 
 public:
@@ -24,8 +24,10 @@ public:
     // void sendTextData(std::string &string_content) override;
 
     int receiveIpFromHub(void);
-    int setSocketForHub(void);
-    int setSocketForLocal(void) override;
+    int setSocketForNode(void);
+    int sendPingPongToLocal(void) override;
+    int sendPingPongToNode(void);
+    int setSocketForLocal(void);
     int readHeader(void) override;
     std::string receiveData(void) override;
     // void receiveDataFromExternal(void) override;

@@ -61,7 +61,7 @@ int Node::readHeader(void){
 int Node::receiveIpFromHub(void){
     int sockfd;
     struct sockaddr_in servaddr, cliaddr;
-    char buffer[65]; // 64 바이트 메시지 + 널 종료 문자
+    char buffer[32]; // 64 바이트 메시지 + 널 종료 문자
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
@@ -69,20 +69,43 @@ int Node::receiveIpFromHub(void){
     }
     memset(&servaddr, 0, sizeof(servaddr));
     memset(&cliaddr, 0, sizeof(cliaddr));
+    memset(buffer, 0, sizeof(buffer));
+
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(8082);
+    servaddr.sin_port = htons(8080);
     if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("bind failed");
         return -1;
     }
     unsigned int len = sizeof(cliaddr);
-    int n = recvfrom(sockfd, buffer, 64, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
+    int n = recvfrom(sockfd, buffer, 32, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
     buffer[n] = '\0';
+
     std::cout << "From ReceiveIpFromHun, Received message: " << buffer << std::endl;
-    this->hubIp = buffer;
+    this->ipAndDepartmentTokenizer(buffer);
     close(sockfd);
     return 0;
+}
+
+void Node::ipAndDepartmentTokenizer(char *buffer){
+    char* token;
+    char* tmp;
+    char* rest = buffer;
+
+    // 첫 번째 호출에서는 buffer의 주소를, 이후 호출에서는 NULL을 사용
+    token = strtok_r(rest, ",", &rest); // IP 주소 추출
+    if (token != NULL) {
+        std::cout << "IP: " << token << std::endl;
+        tmp = token;
+    }
+    token = strtok_r(NULL, ",", &rest); // Department 추출
+    if (token != NULL) {
+        if (static_cast<Department>(std::stoi(token)) == this->nodeInfo.department){
+            this->hubIp = tmp;
+        }
+        std::cout << "Department: " << token << std::endl;
+    }
 }
 
 int Node::setSocketForHub(void){

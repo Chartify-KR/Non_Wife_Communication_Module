@@ -7,17 +7,70 @@ NodeWithHub::NodeWithHub(const std::string& name, const Department& dep, const s
     this->myIp = myIp;
 }
 
+ int NodeWithHub::setSocketForLocal(void){
+    if ((this->local_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket create failed");
+        return -1;
+    }
+    if (setsockopt(this->sock_fd, SOL_SOCKET, SO_REUSEADDR, &(this->opt), sizeof((this->opt)))) {
+        perror("setsockopt");
+        return -1;
+    }
+    this->local_addr.sin_family = AF_INET;
+    this->local_addr.sin_addr.s_addr = INADDR_ANY;
+    this->local_addr.sin_port = htons(8080);
+
+    // // Forcefully attaching socket to the port 8080
+    if (bind(this->local_socket, (struct sockaddr *)&(this->local_addr), sizeof(this->local_addr))<0) {
+        perror("bind failed");
+        return -1;
+    }
+
+    if (listen(this->local_socket, MAX_REQUEST_NUMBER) < 0) {
+        perror("listen");
+        return -1;
+    }
+}
+
+int NodeWithHub::setSocketForNode(void){
+    if ((this->node_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("socket create failed");
+        return -1;
+    }
+    if (setsockopt(this->node_socket, SOL_SOCKET, SO_REUSEADDR, &(this->opt), sizeof((this->opt)))) {
+        perror("setsockopt");
+        return -1;
+    }
+    this->local_addr.sin_family = AF_INET;
+    this->local_addr.sin_addr.s_addr = INADDR_ANY;
+    this->local_addr.sin_port = htons(8080);
+
+    // // Forcefully attaching socket to the port 8080
+    if (bind(this->node_socket, (struct sockaddr *)&(this->node_addr), sizeof(this->node_addr))<0) {
+        perror("bind failed");
+        return -1;
+    }
+
+    if (listen(this->node_socket, MAX_REQUEST_NUMBER) < 0) {
+        perror("listen");
+        return -1;
+    }
+}
+
 int NodeWithHub::run(void){
     // if (this->receiveIpFromHub() == -1){
     //     std::cerr << "Receiving Ip from hub is failed" << std::endl;
     //     return -1;
     // }
-
-    if (this->setSocket() == -1){ // set socket for receving data.
+    if (this->broadcastIpToNode() == -1){
+        std::cerr << "Broadcasting is failed" << std::endl;
+        return -1;
+    }
+    if (this->setSocketForNode() == -1 || this->setSocketForLocal()){ // set socket for receving data.
         std::cerr << "Running socket is failed" << std::endl;
         return -1;
     }
-    if (this->setSocketForHub() == -1 || this->setSocketForLocal() == -1){
+    if (this->sendPingPongToNode() == -1 || this->sendPingPongToLocal() == -1){ // Node will play as hub.
         std::cerr << "send is failed" << std::endl;
         return -1;
     }
@@ -52,19 +105,18 @@ int NodeWithHub::broadcastIpToNode(void){
     }else{
         this->myIp += ",2";
     }
-
-    
+    const char* msg = this->myIp.c_str();
     // UDP 소켓 생성
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     // 브로드캐스트를 활성화
     int broadcastEnable=1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable)) < 0) {
         perror("Error in setting Broadcast option");
-        exit(EXIT_FAILURE);
+        return -1;
     }
     // 브로드캐스트 주소 설정
     memset(&broadcastAddr, 0, sizeof(broadcastAddr));
@@ -74,7 +126,7 @@ int NodeWithHub::broadcastIpToNode(void){
     // 메시지 보내기
     if (sendto(sockfd, msg, strlen(msg), 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) < 0) {
         perror("sendto failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
     std::cout << "Broadcast message sent.\n";
     close(sockfd);
@@ -98,55 +150,30 @@ int NodeWithHub::readHeader(void){
     return 1;
 }
 
-int NodeWithHub::receiveIpFromHub(void){
-    int sockfd;
-    struct sockaddr_in servaddr, cliaddr;
-    char buffer[65]; // 64 바이트 메시지 + 널 종료 문자
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-    memset(&servaddr, 0, sizeof(servaddr));
-    memset(&cliaddr, 0, sizeof(cliaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(8082);
-    if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        perror("bind failed");
-        return -1;
-    }
-    unsigned int len = sizeof(cliaddr);
-    int n = recvfrom(sockfd, buffer, 64, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
-    buffer[n] = '\0';
-    std::cout << "From ReceiveIpFromHun, Received message: " << buffer << std::endl;
-    this->hubIp = buffer;
-    close(sockfd);
-    return 0;
-}
 
-int NodeWithHub::setSocketForHub(void){
+int NodeWithHub::sendPingPongToNode(void){
     char ping[5] = "PING";
     char pong[5];
 
-    if ((this->hub_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((this->node_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         std::cerr << "Socket creation error" << std::endl;
         return -1;
     }
-    this->hub_addr.sin_family = AF_INET;
-    this->hub_addr.sin_port = htons(HUBPORT);
+    this->node_addr.sin_family = AF_INET;
+    this->node_addr.sin_port = htons(HUBPORT);
 
-    if (inet_pton(AF_INET, this->hubIp.c_str(), &(this->hub_addr.sin_addr)) <= 0){
+    if (inet_pton(AF_INET, this->hubIp.c_str(), &(this->node_addr.sin_addr)) <= 0){
         std::cerr << "Invaild address / Address not supported" << std::endl;
         return -1;
     }
-    if (connect(this->hub_socket, (struct sockaddr *)&(this->hub_addr), sizeof(this->hub_addr)) < 0){
+    if (connect(this->node_socket, (struct sockaddr *)&(this->node_addr), sizeof(this->node_addr)) < 0){
         std::cerr << "Connection failed" << std::endl;
         return -1;
     }
-    send(this->hub_socket, ping, sizeof(ping), 0);
+    send(this->node_socket, ping, sizeof(ping), 0);
     std::cout << "Ping is sended to Hub" << std::endl;
-    read(this->hub_socket, pong, sizeof(pong));
+    read(this->node_socket, pong, sizeof(pong));
     pong[4] = '\0';
     if (strcmp(pong, "PONG") == 0){
         std::cout << "Pong is sended from Hub";
@@ -157,7 +184,7 @@ int NodeWithHub::setSocketForHub(void){
     return 1;
 }
 
-int NodeWithHub::setSocketForLocal(void){
+int NodeWithHub::sendPingPongToLocal(void){
     const char* localhost = "127.0.0.1";
     char ping[5] = "PING";
     char pong[5];
@@ -192,10 +219,10 @@ int NodeWithHub::setSocketForLocal(void){
 
 void NodeWithHub::sendDataToHub(const char* content, std::string &dataType){
     // 데이터 전송 로직 구현
-    send(this->hub_socket, dataType.c_str(), dataType.size(), 0);
+    send(this->node_socket, dataType.c_str(), dataType.size(), 0);
     uint32_t dataLength = htonl(this->dataLength);
-    send(this->hub_socket, &dataLength, sizeof(dataLength), 0);
-    send(this->hub_socket, content, strlen(content), 0);
+    send(this->node_socket, &dataLength, sizeof(dataLength), 0);
+    send(this->node_socket, content, strlen(content), 0);
 }
 
 void NodeWithHub::sendDataToLocal(const char* content, std::string &dataType){

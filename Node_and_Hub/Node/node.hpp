@@ -25,11 +25,13 @@ public:
     int receiveIpFromHub(void);
     int setSocketForHub(void);
     int setSocketForLocal(void) override;
+    int sendPingPongToHub(void);
+    int sendPingPongToLocal(void) override;
     int readHeader(void) override;
     
     std::string receiveData(void) override;
     // void receiveDataFromExternal(void) override;
-    void tokenizer(char *buffer);
+    void ipAndDepartmentTokenizer(char *buffer);
 };
 
 

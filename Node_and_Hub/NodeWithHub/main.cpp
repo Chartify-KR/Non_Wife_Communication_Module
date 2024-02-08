@@ -1,7 +1,7 @@
-#include "hub.hpp"
+#include "nodeWithHub.hpp"
 
 int main(int argc, char **argv, char **env){
-    if (argc != 3) {
+    if (argc != 4) {
         std::cerr << "Argument number is not 2" << std::endl;
         return -1;
     }
@@ -9,13 +9,14 @@ int main(int argc, char **argv, char **env){
     std::string Username = argv[1];
     int Dep = std::atoi(argv[2]);
     Department department = static_cast<Department>(Dep);
+    std::string myIp = argv[3];
 
-    Hub *hub = new Hub(Username, department);
-    if (hub->run() == -1){
+    NodeWithHub *node = new NodeWithHub(Username, department, myIp);
+    if (node->run() == -1){
         std::cerr << "program failed" << std::endl;
-        delete hub;
+        delete node;
         return (-1);
     }
-    delete hub;
+    delete node;
     return (0);
 }

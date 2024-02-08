@@ -33,7 +33,6 @@ typedef struct nodeInfo_s{
     std::filesystem::path currentPath;
     std::string userNmae;
     Department department;
-    int nodeSocket;
 } NodeInfo;
 
 class Device {

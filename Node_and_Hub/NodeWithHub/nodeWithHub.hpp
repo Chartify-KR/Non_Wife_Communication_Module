@@ -6,15 +6,16 @@
 #include <iostream>
 
 
-class Node : public Device {
+class NodeWithHub : public Device {
 
 private:
     struct sockaddr_in hub_addr;
     std::string hubIp;
     int hub_socket;
+    std::string myIp;
 
 public:
-    Node(std::string name, Department dep);
+    NodeWithHub(const std::string& name, const Department& dep, const std::string& myIp);
 
 public:
     int run(void);
@@ -26,10 +27,11 @@ public:
     int setSocketForHub(void);
     int setSocketForLocal(void) override;
     int readHeader(void) override;
-    
     std::string receiveData(void) override;
     // void receiveDataFromExternal(void) override;
-    void tokenizer(char *buffer);
+public:
+    int broadcastIpToNode(void);
+
 };
 
 

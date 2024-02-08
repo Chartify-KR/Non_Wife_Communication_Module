@@ -1,16 +1,18 @@
-#include "./node.hpp"
+#include "./nodeWithHub.hpp"
 
-Node::Node(std::string name, Department dep){
+NodeWithHub::NodeWithHub(const std::string& name, const Department& dep, const std::string& myIp){
     this->nodeInfo.userNmae = name;
     this->nodeInfo.department = dep;
-    this->nodeInfo.currentPath = std::filesystem::current_path();
+    // this->nodeInfo.currentPath = std::filesystem::current_path();
+    this->myIp = myIp;
 }
 
-int Node::run(void){
-    if (this->receiveIpFromHub() == -1){
-        std::cerr << "Receiving Ip from hub is failed" << std::endl;
-        return -1;
-    }
+int NodeWithHub::run(void){
+    // if (this->receiveIpFromHub() == -1){
+    //     std::cerr << "Receiving Ip from hub is failed" << std::endl;
+    //     return -1;
+    // }
+
     if (this->setSocket() == -1){ // set socket for receving data.
         std::cerr << "Running socket is failed" << std::endl;
         return -1;
@@ -41,7 +43,45 @@ int Node::run(void){
     return 1;
 }
 
-int Node::readHeader(void){
+int NodeWithHub::broadcastIpToNode(void){
+    int sockfd;
+    struct sockaddr_in broadcastAddr; // 브로드캐스트 주소 구조체
+
+    if (this->nodeInfo.department == PreExamination){
+        this->myIp += ",1";
+    }else{
+        this->myIp += ",2";
+    }
+
+    
+    // UDP 소켓 생성
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // 브로드캐스트를 활성화
+    int broadcastEnable=1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable)) < 0) {
+        perror("Error in setting Broadcast option");
+        exit(EXIT_FAILURE);
+    }
+    // 브로드캐스트 주소 설정
+    memset(&broadcastAddr, 0, sizeof(broadcastAddr));
+    broadcastAddr.sin_family = AF_INET;
+    broadcastAddr.sin_port = htons(8080); // 대상 포트
+    broadcastAddr.sin_addr.s_addr = inet_addr("255.255.255.255"); // 브로드캐스트 주소
+    // 메시지 보내기
+    if (sendto(sockfd, msg, strlen(msg), 0, (struct sockaddr *)&broadcastAddr, sizeof(broadcastAddr)) < 0) {
+        perror("sendto failed");
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "Broadcast message sent.\n";
+    close(sockfd);
+    return 0;
+}
+
+int NodeWithHub::readHeader(void){
     std::string client_ip_str;
 
     inet_ntop(AF_INET, &(this->local_addr.sin_addr), this->client_ip, INET_ADDRSTRLEN);
@@ -58,7 +98,7 @@ int Node::readHeader(void){
     return 1;
 }
 
-int Node::receiveIpFromHub(void){
+int NodeWithHub::receiveIpFromHub(void){
     int sockfd;
     struct sockaddr_in servaddr, cliaddr;
     char buffer[65]; // 64 바이트 메시지 + 널 종료 문자
@@ -85,7 +125,7 @@ int Node::receiveIpFromHub(void){
     return 0;
 }
 
-int Node::setSocketForHub(void){
+int NodeWithHub::setSocketForHub(void){
     char ping[5] = "PING";
     char pong[5];
 
@@ -117,7 +157,7 @@ int Node::setSocketForHub(void){
     return 1;
 }
 
-int Node::setSocketForLocal(void){
+int NodeWithHub::setSocketForLocal(void){
     const char* localhost = "127.0.0.1";
     char ping[5] = "PING";
     char pong[5];
@@ -150,7 +190,7 @@ int Node::setSocketForLocal(void){
 
 }
 
-void Node::sendDataToHub(const char* content, std::string &dataType){
+void NodeWithHub::sendDataToHub(const char* content, std::string &dataType){
     // 데이터 전송 로직 구현
     send(this->hub_socket, dataType.c_str(), dataType.size(), 0);
     uint32_t dataLength = htonl(this->dataLength);
@@ -158,7 +198,7 @@ void Node::sendDataToHub(const char* content, std::string &dataType){
     send(this->hub_socket, content, strlen(content), 0);
 }
 
-void Node::sendDataToLocal(const char* content, std::string &dataType){
+void NodeWithHub::sendDataToLocal(const char* content, std::string &dataType){
     // 데이터 전송 로직 구현
     send(this->local_socket, dataType.c_str(), dataType.size(), 0);
     uint32_t dataLength = htonl(this->dataLength);
@@ -166,7 +206,7 @@ void Node::sendDataToLocal(const char* content, std::string &dataType){
     send(this->local_socket, content, strlen(content), 0);
 }
 
-std::string Node::receiveData(void){
+std::string NodeWithHub::receiveData(void){
     // 데이터 수신 로직 구현
     int bytesReceived;
     // std::stringstream ss;
@@ -189,14 +229,14 @@ std::string Node::receiveData(void){
     // dataType = "FILE";
     // this->sendData(content, dataType);
     return dataType;
-    //std::cout << "Node received data: " << data << std::endl;
+    //std::cout << "NodeWithHub received data: " << data << std::endl;
 }
 
-// void Node::receiveDataFromExternal(void){
+// void NodeWithHub::receiveDataFromExternal(void){
 
 // }
 
-// void Node::sendTextData(std::string &string_content){
+// void NodeWithHub::sendTextData(std::string &string_content){
 //     if (this->setSocketForSend() == -1){
 //         std::cerr << "send is failed" << std::endl;
 //         delete this->buffer;

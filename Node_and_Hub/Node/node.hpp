@@ -4,36 +4,40 @@
 
 #include "./device.hpp"
 #include <iostream>
+#include <vector>
+#include <thread>
 
 
 class Node : public Device {
 
 private:
-    struct sockaddr_in hub_addr;
     std::string hubIp;
-    int hub_socket;
+    std::string myIp;
 
 public:
-    Node(std::string name, Department dep);
+    Node(const std::string& name, const Department& dep, const std::string& myIp);
 
 public:
     int run(void);
-    void sendDataToLocal(const char* content, std::string &dataType) override;
-    void sendDataToHub(const char* content, std::string &dataType) override;
+    
     // void sendTextData(std::string &string_content) override;
 
     int receiveIpFromHub(void);
-    int setSocketForHub(void);
-    int setSocketForLocal(void) override;
-    int sendPingPongToHub(void);
-    int sendPingPongToLocal(void) override;
-    int readHeader(void) override;
+    int setSocketForNode(void);
+    int sendPingPongToNode(void);
+    int setSocketForLocal(void);
+    void handleConnection(int sock);
     
-    std::string receiveData(void) override;
     // void receiveDataFromExternal(void) override;
-    void ipAndDepartmentTokenizer(char *buffer);
+public:
+    int broadcastIpToNode(void);
+
 };
 
 
-
+int readHeader(clientInfo &info, char *buffer);
+void sendData(const char* content, std::string &dataType, int &sock);
+void handleLocalConnection(clientInfo info, int dstSocket);
+void handleNodeConnection(clientInfo info, int dstSocket);
+std::string receiveData(clientInfo &info, char *buffer);
 #endif

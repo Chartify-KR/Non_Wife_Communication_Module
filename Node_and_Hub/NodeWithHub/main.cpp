@@ -2,7 +2,7 @@
 
 int main(int argc, char **argv, char **env){
     if (argc != 4) {
-        std::cerr << "Argument number is not 2" << std::endl;
+        std::cerr << "Argument number is not 3" << std::endl;
         return -1;
     }
 

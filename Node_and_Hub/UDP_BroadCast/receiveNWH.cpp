@@ -1,5 +1,7 @@
 #include <iostream>
+#include <cstring> // for memset
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fstream>
@@ -7,15 +9,55 @@
 #include <string>
 #include <string.h>
 
-int main(int argc, char** argv) {
+int main() {
+    int sockfd;
+    struct sockaddr_in servaddr, cliaddr;
+    char newBuffer[65]; // 64 바이트 메시지 + 널 종료 문자
+
+    // 소켓 생성
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&cliaddr, 0, sizeof(cliaddr));
+
+    // 서버 정보 채우기
+    servaddr.sin_family = AF_INET; // IPv4
+    servaddr.sin_addr.s_addr = INADDR_ANY; // 모든 인터페이스에서 수신
+    servaddr.sin_port = htons(8080); // 포트 8080에서 수신
+
+    // 소켓에 서버 정보 바인딩
+    if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+    int n = 0;
+    while (!n) {
+        unsigned int len = sizeof(cliaddr); // 클라이언트 주소의 길이
+
+        // 데이터 수신
+        n = recvfrom(sockfd, newBuffer, 64, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
+        newBuffer[n] = '\0'; // 문자열 종료
+        std::cout << "Received message: " << newBuffer << std::endl;
+    }
+
+    close(sockfd);
+
+
+
+
+
+
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
     char format;
     char file_buffer[1024];
     std::string dataType;
-    std::string filename = argv[1];
-    std::string fileMsg = "/Users/ojeongmin/Programming_study/Non_Wifi_Communication/test_dir/client/" + filename;
+    std::string fileMsg = "/Users/ojeongmin/Programming_study/Non_Wifi_Communication/Node_and_Hub/UDP_BroadCast/go.txt";
+
     while (1){
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             std::cout << "Socket creation error" << std::endl;
@@ -84,6 +126,9 @@ int main(int argc, char** argv) {
         }
 
     }
+
+    return 0;
+
 
     return 0;
 }

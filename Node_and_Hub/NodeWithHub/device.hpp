@@ -32,11 +32,12 @@ typedef struct clientInfo_s{
     struct sockaddr_in address;
     int addrlen = sizeof(address);
     char clientIp[16];
+    char header[5];
 } clientInfo;
 
 typedef struct nodeInfo_s{
     std::string ip;
-    std::filesystem::path currentPath;
+    std::__fs::filesystem::path currentPath;
     std::string userNmae;
     Department department;
 } NodeInfo;
@@ -60,17 +61,8 @@ class Device {
 
         virtual int run(void) = 0;
         int setSocket(void);
-        virtual int sendPingPongToLocal(void) = 0;
         int acceptSocket(void);
         int makeDirectory(void);
-        // 데이터를 전송하는 함수
-        // virtual int readHeader(void) = 0;
-        virtual void sendDataToLocal(const char* content, std::string &dataType) = 0;
-        virtual void sendDataToHub(const char* content, std::string &dataType) = 0;
-        // virtual void sendTextData(std::string &string_content) = 0;
-        // 데이터를 수신하는 함수
-        virtual std::string receiveData(void) = 0;
-        // virtual void receiveDataFromExternal(void) = 0;
 };      
 
 

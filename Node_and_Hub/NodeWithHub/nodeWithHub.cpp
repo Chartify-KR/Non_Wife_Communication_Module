@@ -57,43 +57,98 @@ int NodeWithHub::setSocketForNode(void){
     }
 }
 
+
+
+// int NodeWithHub::run(void){
+//     if (this->broadcastIpToNode() == -1){
+//         std::cerr << "Broadcasting is failed" << std::endl;
+//         return -1;
+//     }
+//     if (this->setSocketForNode() == -1 || this->setSocketForLocal() == -1){ // set socket for receving data.
+//         std::cerr << "Running socket is failed" << std::endl;
+//         return -1;
+//     }
+//     if (this->sendPingPongToNode() == -1 || this->sendPingPongToLocal() == -1){ // Node will play as hub.
+//         std::cerr << "send is failed" << std::endl;
+//         return -1;
+//     }
+//     while (true){
+//         if (this->acceptSocket() == -1){ 
+//             std::cerr << "readySocket is failed" << std::endl;
+//         }
+//         std::thread t(handleConnection, this->new_socket);
+//     }
+//     return 1;
+// }
+
 int NodeWithHub::run(void){
-    // if (this->receiveIpFromHub() == -1){
-    //     std::cerr << "Receiving Ip from hub is failed" << std::endl;
-    //     return -1;
-    // }
     if (this->broadcastIpToNode() == -1){
         std::cerr << "Broadcasting is failed" << std::endl;
         return -1;
     }
-    if (this->setSocketForNode() == -1 || this->setSocketForLocal()){ // set socket for receving data.
-        std::cerr << "Running socket is failed" << std::endl;
-        return -1;
-    }
-    if (this->sendPingPongToNode() == -1 || this->sendPingPongToLocal() == -1){ // Node will play as hub.
-        std::cerr << "send is failed" << std::endl;
-        return -1;
-    }
-    std::string dataType;
-
+    int port = 8080;
     while (true){
-        if (this->acceptSocket() == -1){ 
-            std::cerr << "readySocket is failed" << std::endl;
+        int opt = 1;
+        int server_fd;
+        clientInfo info;
+
+        memset(&info, 0 , sizeof(clientInfo));
+        server_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (server_fd < 0) {
+            std::cerr << "Failed to create local socket" << std::endl;
+            return -1;
         }
-        // read header to know whether this message is from local or external and file or string.
+        info.address.sin_family = AF_INET;
+        info.address.sin_addr.s_addr = htonl(INADDR_ANY);
+        info.address.sin_port = htons(port++);
+        if (bind(server_fd, (struct sockaddr *)&info.address, sizeof(clientInfo)) < 0) {
+            std::cerr << "Failed to bind external socket" << std::endl;
+            return -1;
+        }
+        if (listen(server_fd, SOMAXCONN) < 0) {
+            std::cerr << "Failed to listen on local socket" << std::endl;
+            return -1;
+        }
+        if ((info.socket = accept(server_fd, (struct sockaddr *)&info.address, (socklen_t*)&info.addrlen))<0) {
+            perror("accept");
+            return -1;
+        }
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &info.address.sin_addr, client_ip, INET_ADDRSTRLEN);
+        strcpy(info.clientIp, client_ip);
+        if (strcmp("127.0.0.1", client_ip) == 0){
+            std::thread localThread(handleLocalConnection, info);
+            localThread.detach();
+        }else{
+            std::thread nodeThread(handleNodeConnection, info);
+            nodeThread.detach();
+        }
+
+    }
+}
+
+void NodeWithHub::handleLocalConnection(clientInfo info){
+
+}
+
+void NodeWithHub::handleNodeConnection(clientInfo info){
+    
+}
+
+void NodeWithHub::handleConnection(int sock){
+
+        std::string dataType;
         this->readHeader();
         dataType = this->receiveData();
         char* content = new char[strlen(this->buffer) + 1];
         strcpy(content, this->buffer);
         delete this->buffer;
-        if (this->new_socket == this->local_socket){ // socket is from local. Therefore, send data to Hub
+        if (sock == this->local_socket){ // socket is from local. Therefore, send data to Hub
             sendDataToHub(content, dataType);
         }else{ // // socket is from Hub. Therefore, send data to Local
             sendDataToLocal(content, dataType);
         }
         delete content;
-    }
-    return 1;
 }
 
 int NodeWithHub::broadcastIpToNode(void){
@@ -111,7 +166,7 @@ int NodeWithHub::broadcastIpToNode(void){
         perror("socket creation failed");
         return -1;
     }
-
+    
     // 브로드캐스트를 활성화
     int broadcastEnable=1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable)) < 0) {
@@ -133,16 +188,18 @@ int NodeWithHub::broadcastIpToNode(void){
     return 0;
 }
 
-int NodeWithHub::readHeader(void){
+int NodeWithHub::readHeader(clientInfo &info){
     std::string client_ip_str;
+    char header[4];
 
-    inet_ntop(AF_INET, &(this->local_addr.sin_addr), this->client_ip, INET_ADDRSTRLEN);
-    std::cout << "Client connected from " << this->client_ip << ":" << ntohs(this->local_addr.sin_port) << std::endl;
-    read(this->new_socket, this->header, 1);
-    this->header[4] = '\0';
+    inet_ntop(AF_INET, &(info.address.sin_addr), info.clientIp, INET_ADDRSTRLEN);
+    // std::cout << "Client connected from " << this->client_ip << ":" << ntohs(this->local_addr.sin_port) << std::endl;
+    read(info.socket, header, 1);
+    header[4] = '\0';
 
+    uint32_t dataLength;
     // read length of data that client has sent. And then set the buffer.
-    read(this->new_socket, &(this->dataLength), sizeof(this->dataLength));
+    read(info.socket, (dataLength), dataLength);
     this->dataLength = ntohl(this->dataLength);
     this->buffer = new char[this->dataLength + 1];
     this->buffer[this->dataLength] = '\0';
@@ -156,21 +213,7 @@ int NodeWithHub::sendPingPongToNode(void){
     char ping[5] = "PING";
     char pong[5];
 
-    if ((this->node_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        std::cerr << "Socket creation error" << std::endl;
-        return -1;
-    }
-    this->node_addr.sin_family = AF_INET;
-    this->node_addr.sin_port = htons(HUBPORT);
 
-    if (inet_pton(AF_INET, this->hubIp.c_str(), &(this->node_addr.sin_addr)) <= 0){
-        std::cerr << "Invaild address / Address not supported" << std::endl;
-        return -1;
-    }
-    if (connect(this->node_socket, (struct sockaddr *)&(this->node_addr), sizeof(this->node_addr)) < 0){
-        std::cerr << "Connection failed" << std::endl;
-        return -1;
-    }
     send(this->node_socket, ping, sizeof(ping), 0);
     std::cout << "Ping is sended to Hub" << std::endl;
     read(this->node_socket, pong, sizeof(pong));
@@ -184,37 +227,38 @@ int NodeWithHub::sendPingPongToNode(void){
     return 1;
 }
 
+static void pingPongThreadConnection(){
+
+}
+
 int NodeWithHub::sendPingPongToLocal(void){
-    const char* localhost = "127.0.0.1";
-    char ping[5] = "PING";
-    char pong[5];
-    
-    if (this->local_socket = socket(AF_INET, SOCK_STREAM, 0) < 0){
-        std::cerr << "Socket creation error" << std::endl;
-        return -1;
+    char localPing[6]; 
+    char localPong[6] = "LOCAL";
+    char nodePing[5];
+    char nodePong[5] = "NODE";
+
+    socklen_t addrlen = sizeof(this->local_addr);
+    while (true){
+        if (this->local_socket = accept(this->local_socket, (struct sockaddr *)&(this->local_addr), &addrlen)){
+        perror("accept");
+        exit(EXIT_FAILURE);
+        }
+
+        std::thread t(pingPongThreadConnection, this->local_socket);
     }
-    this->local_addr.sin_family = AF_INET;
-    this->local_addr.sin_port = htons(LOCALPORT);
-    if (inet_pton(AF_INET, localhost, &(this->local_addr.sin_addr)) <= 0){
-        std::cerr << "Invaild address / Address not supported" << std::endl;
-        return -1;
-    }
-    if (connect(this->local_socket, (struct sockaddr *)&(this->local_addr), sizeof(this->local_addr)) < 0){
-        std::cerr << "Connection failed" << std::endl;
-        return -1;
-    }
-    send(this->local_socket, ping, sizeof(ping), 0);
-    std::cout << "Ping is sended to Hub" << std::endl;
-    read(this->local_socket, pong, sizeof(pong));
-    pong[4] = '\0';
-    if (strcmp(pong, "PONG") == 0){
-        std::cout << "Pong is sended from Hub";
+   
+    read(this->local_socket, ping, sizeof(ping));
+    ping[4] = '\0';
+    if (strcmp(ping, "LOCAL") == 0){
+        std::cout << "Ping is sended from DingDong: " << ping << std::endl;
     }else{
         std::cerr << "Hub: " << pong << ", connection failed" << std::endl;
         exit(1);
     }
+    send(this->local_socket, pong, sizeof(pong), 0);
+    std::cout << "Pong is sended" << std::endl; 
+    pong[4] = '\0';
     return 1;
-
 }
 
 void NodeWithHub::sendDataToHub(const char* content, std::string &dataType){
@@ -258,17 +302,3 @@ std::string NodeWithHub::receiveData(void){
     return dataType;
     //std::cout << "NodeWithHub received data: " << data << std::endl;
 }
-
-// void NodeWithHub::receiveDataFromExternal(void){
-
-// }
-
-// void NodeWithHub::sendTextData(std::string &string_content){
-//     if (this->setSocketForSend() == -1){
-//         std::cerr << "send is failed" << std::endl;
-//         delete this->buffer;
-//         exit(1);
-//     }
-//     std::string dataType = "TEXT";
-
-// }

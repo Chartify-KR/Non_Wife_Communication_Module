@@ -57,7 +57,7 @@ class Device {
 
         virtual int run(void) = 0;
         int setSocket(void);
-        virtual int setSocketForLocal(void) = 0;
+        virtual int sendPingPongToLocal(void) = 0;
         int acceptSocket(void);
         int makeDirectory(void);
         // 데이터를 전송하는 함수

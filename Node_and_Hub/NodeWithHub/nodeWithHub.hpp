@@ -4,14 +4,14 @@
 
 #include "./device.hpp"
 #include <iostream>
+#include <vector>
+#include <thread>
 
 
 class NodeWithHub : public Device {
 
 private:
-    struct sockaddr_in node_addr;
     std::string hubIp;
-    int node_socket;
     std::string myIp;
 
 public:
@@ -28,8 +28,12 @@ public:
     int sendPingPongToLocal(void) override;
     int sendPingPongToNode(void);
     int setSocketForLocal(void);
-    int readHeader(void) override;
+    int readHeader(int &sock);
     std::string receiveData(void) override;
+    void handleConnection(int sock);
+    
+    void handleLocalConnection(clientInfo info);
+    void handleNodeConnection(clientInfo info);
     // void receiveDataFromExternal(void) override;
 public:
     int broadcastIpToNode(void);

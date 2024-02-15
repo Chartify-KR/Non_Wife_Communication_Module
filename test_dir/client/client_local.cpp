@@ -7,14 +7,15 @@
 #include <string>
 #include <string.h>
 
-int main() {
+int main(int argc, char** argv) {
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
     char format;
     char file_buffer[1024];
     std::string dataType;
-
+    std::string filename = argv[1];
+    std::string fileMsg = "/Users/ojeongmin/Programming_study/Non_Wifi_Communication/test_dir/client/" + filename;
     while (1){
         if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             std::cout << "Socket creation error" << std::endl;
@@ -43,7 +44,7 @@ int main() {
         if (format == 'y'){
             dataType = "FILE";
             send(sock, dataType.c_str(), dataType.size(), 0);
-            std::ifstream file("/Users/ojeongmin/Programming_study/Non_Wifi_Communication/test_dir/client/test.json", std::ios::binary);
+            std::ifstream file(fileMsg, std::ios::binary);
             std::stringstream ss;
             ss << file.rdbuf();
             if (!ss.eof()) {

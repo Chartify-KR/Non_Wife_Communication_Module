@@ -41,11 +41,8 @@ static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, std::ve
             std::cout << "Here we go local" << std::endl;
         }else{
             vec.push_back(deviceInfo);
-            // if (vec.size() == 0){
-            //     break;
-            // }
         }
-        if (vec.size() == 0){
+        if (vec.size() == 1){
             break;
         }
     }
@@ -81,7 +78,7 @@ int NodeWithHub::run(void){
         // }
         // inet_ntop(AF_INET, &newInfo.address.sin_addr, client_ip, INET_ADDRSTRLEN);
             // std::thread t(handleLocalConnection, LocalInfo, infoVector[1].socket);
-        std::thread tLocal(handleLocalConnection, LocalInfo, 11);
+        std::thread tLocal(handleLocalConnection, LocalInfo, infoVector[1].socket);
         std::thread tNode(handleNodeConnection, infoVector[1], LocalInfo.socket);
         tLocal.join();
         tNode.join();

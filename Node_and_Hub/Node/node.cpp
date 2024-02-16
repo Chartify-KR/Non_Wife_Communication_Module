@@ -53,7 +53,7 @@ static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, clientI
     return 1;
 }
 
-static int connectToHub(clientInfo &hubinfo, std::string &hubIp){
+int connectToHub(clientInfo &hubinfo, std::string &hubIp){
        if ((hubinfo.socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
             std::cout << "Socket creation error" << std::endl;
             return -1;
@@ -83,7 +83,7 @@ int Node::receiveIpFromHub(void){
     // 소켓 생성
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     memset(&servaddr, 0, sizeof(servaddr));
@@ -97,7 +97,7 @@ int Node::receiveIpFromHub(void){
     // 소켓에 서버 정보 바인딩
     if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("bind failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
     int n = 0;
     while (!n) {
@@ -109,6 +109,7 @@ int Node::receiveIpFromHub(void){
     }
     hubIp = newBuffer;
     close(sockfd);
+    return 1;
 }
 
 int Node::run(void){
@@ -133,28 +134,14 @@ int Node::run(void){
         clientInfo newInfo;
         char client_ip[INET_ADDRSTRLEN] = {0};
         inet_ntop(AF_INET, &(LocalInfo.address.sin_addr), client_ip, INET_ADDRSTRLEN);
-        // std::cout << "Client connected from " << LocalInfo.clientIp << ":" << ntohs(LocalInfo.address.sin_port) << std::endl;
-
-        // if ((newInfo.socket = accept(serverInfo.socket, (struct sockaddr *)&newInfo.address, (socklen_t*)&newInfo.addrlen))<0) {
-        //     perror("accept");
-        //     return -1;
-        // }
-    
-        // inet_ntop(AF_INET, &newInfo.address.sin_addr, client_ip, INET_ADDRSTRLEN);
-
-        if (strcmp(LocalInfo.clientIp, client_ip) == 0){
-            std::cout << "local" << std::endl;
-            // std::thread t(handleLocalConnection, LocalInfo, infoVector[1].socket);
-            std::thread tLocal(handleLocalConnection, LocalInfo, 11);
-            tLocal.join();
-        }else{
-            std::cout << "node" << std::endl;
-            std::thread tNode(handleNodeConnection, infoVector[1], LocalInfo.socket);
-            tNode.join();
-        }
+        std::thread tLocal(handleLocalConnection, LocalInfo, hubInfo.socket);
+        std::thread tNode(handleNodeConnection, hubInfo, LocalInfo.socket);
+        tLocal.join();
+        tNode.join();
     }
-    return 1;
+        return 1;
 }
+
 
 void handleLocalConnection(clientInfo info, int dstSocket){
     std::string dataType;
@@ -259,10 +246,6 @@ char *readHeader(clientInfo &info) {
 
 void sendData(const char* content, std::string &dataType, int &sock){
     // 데이터 전송 로직 구현
-    std::cout << "while : " << std::endl;
-    while(1){
-
-    }
     send(sock, dataType.c_str(), dataType.size(), 0);
     uint32_t dataLength = strlen(content);
     dataLength = htonl(dataLength);

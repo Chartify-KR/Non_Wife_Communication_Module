@@ -34,7 +34,7 @@ public:
 
 };
 
-
+int connectToHub(clientInfo &hubinfo, std::string &hubIp);
 char *readHeader(clientInfo &info);
 void sendData(const char* content, std::string &dataType, int &sock);
 void handleLocalConnection(clientInfo info, int dstSocket);

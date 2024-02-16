@@ -35,9 +35,8 @@ public:
 };
 
 
-int readHeader(clientInfo &info, char *buffer);
+char *readHeader(clientInfo &info);
 void sendData(const char* content, std::string &dataType, int &sock);
 void handleLocalConnection(clientInfo info, int dstSocket);
 void handleNodeConnection(clientInfo info, int dstSocket);
-std::string receiveData(clientInfo &info, char *buffer);
 #endif

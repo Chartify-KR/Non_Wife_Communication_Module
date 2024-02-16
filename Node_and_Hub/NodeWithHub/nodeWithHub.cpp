@@ -67,6 +67,7 @@ int NodeWithHub::run(void){
         std::cerr << "Error" << std::endl;
         return -1;
     }
+    
     int i = -1;
     while (++i < 2){
         clientInfo newInfo;
@@ -78,19 +79,12 @@ int NodeWithHub::run(void){
         //     perror("accept");
         //     return -1;
         // }
-    
         // inet_ntop(AF_INET, &newInfo.address.sin_addr, client_ip, INET_ADDRSTRLEN);
-
-        if (strcmp(LocalInfo.clientIp, client_ip) == 0){
-            std::cout << "local" << std::endl;
             // std::thread t(handleLocalConnection, LocalInfo, infoVector[1].socket);
-            std::thread tLocal(handleLocalConnection, LocalInfo, 11);
-            tLocal.join();
-        }else{
-            std::cout << "node" << std::endl;
-            std::thread tNode(handleNodeConnection, infoVector[1], LocalInfo.socket);
-            tNode.join();
-        }
+        std::thread tLocal(handleLocalConnection, LocalInfo, 11);
+        std::thread tNode(handleNodeConnection, infoVector[1], LocalInfo.socket);
+        tLocal.join();
+        tNode.join();
     }
     return 1;
 }
@@ -114,6 +108,31 @@ void handleNodeConnection(clientInfo info, int dstSocket){
     delete[] buffer;
     sendData(content, dataType, dstSocket);
     delete[] content;
+}
+
+char *readHeader(clientInfo &info) {
+    std::string client_ip_str;
+    read(info.socket, info.header, 4);
+    info.header[4] = '\0';
+    if (strcmp(info.header, "FILE") == 0){
+        info.dataType = "FILE";
+    }else if (strcmp(info.header, "TEXT") == 0){
+        info.dataType = "TEXT";
+    }
+    uint32_t dataLength;
+    int ret = read(info.socket, &dataLength, sizeof(dataLength));
+    dataLength = ntohl(dataLength);
+    std::cout << "data len: " << dataLength << std::endl;
+    std::cout << "ret: " << ret << std::endl;
+    // buffer에 메모리를 할당하고, 이 메모리 주소를 호출자에게 반영합니다.
+    // *buffer = new char[dataLength + 1];
+    char* new_buffer = new char[dataLength + 1];
+    new_buffer[dataLength] = '\0';
+    // 데이터를 buffer에 읽어들입니다.
+    read(info.socket, new_buffer, dataLength);
+    std::cout << "new_buffer: " << new_buffer << std::endl;
+    client_ip_str = info.clientIp;
+    return new_buffer;
 }
 
 void NodeWithHub::handleConnection(int sock){
@@ -171,30 +190,6 @@ int NodeWithHub::broadcastIpToNode(void){
 //     return 1;
 // }
 
-char *readHeader(clientInfo &info) {
-    std::string client_ip_str;
-    read(info.socket, info.header, 4);
-    info.header[4] = '\0';
-    if (strcmp(info.header, "FILE") == 0){
-        info.dataType = "FILE";
-    }else if (strcmp(info.header, "TEXT") == 0){
-        info.dataType = "TEXT";
-    }
-    uint32_t dataLength;
-    int ret = read(info.socket, &dataLength, sizeof(dataLength));
-    dataLength = ntohl(dataLength);
-    std::cout << "data len: " << dataLength << std::endl;
-    std::cout << "ret: " << ret << std::endl;
-    // buffer에 메모리를 할당하고, 이 메모리 주소를 호출자에게 반영합니다.
-    // *buffer = new char[dataLength + 1];
-    char* new_buffer = new char[dataLength + 1];
-    new_buffer[dataLength] = '\0';
-    // 데이터를 buffer에 읽어들입니다.
-    read(info.socket, new_buffer, dataLength);
-    std::cout << "new_buffer: " << new_buffer << std::endl;
-    client_ip_str = info.clientIp;
-    return new_buffer;
-}
 
 void sendData(const char* content, std::string &dataType, int &sock){
     // 데이터 전송 로직 구현

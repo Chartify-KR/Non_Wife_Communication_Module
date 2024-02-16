@@ -1,14 +1,16 @@
-#include "./nodeWithHub.hpp"
+#include "./node.hpp"
 
-NodeWithHub::NodeWithHub(const std::string& name, const Department& dep, const std::string& myIp){
+Node::Node(const std::string& name, const Department& dep, const std::string& myIp){
     this->nodeInfo.userNmae = name;
     this->nodeInfo.department = dep;
     // this->nodeInfo.currentPath = std::filesystem::current_path();
     this->myIp = myIp;
 }
 
-static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, std::vector<clientInfo> &vec){
+static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, clientInfo &hubInfo, std::string &hubIp){
     int port = 8080;
+    int localSign = 0;
+    int hubSign = 0;
 
     memset(&serverInfo, 0 , sizeof(clientInfo));
     serverInfo.socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -27,7 +29,7 @@ static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, std::ve
         std::cerr << "Failed to listen on local socket" << std::endl;
         return -1;
     }
-    while (true){
+    while (!localSign || !hubSign){
         clientInfo deviceInfo;
         if ((deviceInfo.socket = accept(serverInfo.socket, (struct sockaddr *)&deviceInfo.address, (socklen_t*)&deviceInfo.addrlen))<0) {
             perror("accept");
@@ -38,32 +40,91 @@ static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, std::ve
         strcpy(deviceInfo.clientIp, client_ip);
         if (strcmp("127.0.0.1", client_ip) == 0){
             localInfo = deviceInfo;
+            localSign = 1;
             std::cout << "Here we go local" << std::endl;
-        }else{
-            vec.push_back(deviceInfo);
-            // if (vec.size() == 0){
-            //     break;
-            // }
-        }
-        if (vec.size() == 0){
-            break;
+            if (connectToHub(hubInfo, hubIp) > 0){
+                hubSign = 1;
+            }else{
+                std::cerr << "connect to hub failed" << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
     }
     return 1;
 }
 
-int NodeWithHub::run(void){
-    if (this->broadcastIpToNode() == -1){
-        std::cerr << "Broadcasting is failed" << std::endl;
+static int connectToHub(clientInfo &hubinfo, std::string &hubIp){
+       if ((hubinfo.socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            std::cout << "Socket creation error" << std::endl;
+            return -1;
+        }
+
+        hubinfo.address.sin_family = AF_INET;
+        hubinfo.address.sin_port = htons(8080);
+
+        // Convert IPv4 and IPv6 addresses from text to binary form
+        if (inet_pton(AF_INET, hubIp.c_str(), &hubinfo.address.sin_addr) <= 0) {
+            std::cout << "Invalid address/ Address not supported" << std::endl;
+            return -1;
+        }
+
+        if (connect(hubinfo.socket, (struct sockaddr *)&hubinfo.address, sizeof(hubinfo.address)) < 0) {
+            std::cout << "Connection Failed" << std::endl;
+            return -1;
+        }
+        return 1;
+}
+
+int Node::receiveIpFromHub(void){
+    int sockfd;
+    struct sockaddr_in servaddr, cliaddr;
+    char newBuffer[16]; // 64 바이트 메시지 + 널 종료 문자
+
+    // 소켓 생성
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&cliaddr, 0, sizeof(cliaddr));
+
+    // 서버 정보 채우기
+    servaddr.sin_family = AF_INET; // IPv4
+    servaddr.sin_addr.s_addr = INADDR_ANY; // 모든 인터페이스에서 수신
+    servaddr.sin_port = htons(8080); // 포트 8080에서 수신
+
+    // 소켓에 서버 정보 바인딩
+    if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+    int n = 0;
+    while (!n) {
+        unsigned int len = sizeof(cliaddr); // 클라이언트 주소의 길이
+        // 데이터 수신
+        n = recvfrom(sockfd, newBuffer, 64, MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
+        newBuffer[n] = '\0'; // 문자열 종료
+        std::cout << "Received message: " << newBuffer << std::endl;
+    }
+    hubIp = newBuffer;
+    close(sockfd);
+}
+
+int Node::run(void){
+    if (this->receiveIpFromHub() == -1){
+        std::cerr << "Receiving ip from hub is failed" << std::endl;
         return -1;
     }
     clientInfo serverInfo;
     clientInfo LocalInfo;
-    std::vector<clientInfo> infoVector;
-    
+    clientInfo hubInfo;
+
     memset(&LocalInfo, 0, sizeof(clientInfo));
     memset(&serverInfo, 0, sizeof(clientInfo));
-    if (connectDevices(serverInfo, LocalInfo, infoVector) == -1){
+    memset(&hubInfo, 0, sizeof(clientInfo));
+
+    if (connectDevices(serverInfo, LocalInfo, hubInfo, this->hubIp) == -1){
         std::cerr << "Error" << std::endl;
         return -1;
     }
@@ -72,7 +133,7 @@ int NodeWithHub::run(void){
         clientInfo newInfo;
         char client_ip[INET_ADDRSTRLEN] = {0};
         inet_ntop(AF_INET, &(LocalInfo.address.sin_addr), client_ip, INET_ADDRSTRLEN);
-        std::cout << "Client connected from " << LocalInfo.clientIp << ":" << ntohs(LocalInfo.address.sin_port) << std::endl;
+        // std::cout << "Client connected from " << LocalInfo.clientIp << ":" << ntohs(LocalInfo.address.sin_port) << std::endl;
 
         // if ((newInfo.socket = accept(serverInfo.socket, (struct sockaddr *)&newInfo.address, (socklen_t*)&newInfo.addrlen))<0) {
         //     perror("accept");
@@ -116,10 +177,10 @@ void handleNodeConnection(clientInfo info, int dstSocket){
     delete[] content;
 }
 
-void NodeWithHub::handleConnection(int sock){
+void Node::handleConnection(int sock){
 }
 
-int NodeWithHub::broadcastIpToNode(void){
+int Node::broadcastIpToNode(void){
     int sockfd;
     struct sockaddr_in broadcastAddr; // 브로드캐스트 주소 구조체
 

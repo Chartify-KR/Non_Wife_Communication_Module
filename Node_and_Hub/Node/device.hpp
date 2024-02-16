@@ -34,6 +34,7 @@ typedef struct clientInfo_s{
     char clientIp[16];
     char header[5];
     std::string dataType;
+    
 } clientInfo;
 
 typedef struct nodeInfo_s{

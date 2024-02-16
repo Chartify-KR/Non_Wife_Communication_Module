@@ -58,31 +58,28 @@ int main() {
     std::string dataType;
     std::string fileMsg = "/Users/ojeongmin/Programming_study/Non_Wifi_Communication/Node_and_Hub/UDP_BroadCast/go.txt";
 
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        std::cout << "Socket creation error" << std::endl;
+        return -1;
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(8080);
+
+    // Convert IPv4 and IPv6 addresses from text to binary form
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        std::cout << "Invalid address/ Address not supported" << std::endl;
+        return -1;
+    }
+
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        std::cout << "Connection Failed" << std::endl;
+        return -1;
+    }
     while (1){
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            std::cout << "Socket creation error" << std::endl;
-            return -1;
-        }
-
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons(8080);
-
-        // Convert IPv4 and IPv6 addresses from text to binary form
-        if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-            std::cout << "Invalid address/ Address not supported" << std::endl;
-            return -1;
-        }
-
-        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-            std::cout << "Connection Failed" << std::endl;
-            return -1;
-        }
-        
-       
-
         std::cout << "Choose message format. Do you want to prefer file: (Y/n)";
         std::cin >> format;
-
         if (format == 'y' || format == 'Y'){
             dataType = "FILE";
             send(sock, dataType.c_str(), dataType.size(), 0);

@@ -83,11 +83,22 @@ int main() {
         std::cout << "Choose message format. Do you want to prefer file: (Y/n)";
         std::cin >> format;
 
-        if (format == 'y'){
+        if (format == 'y' || format == 'Y'){
             dataType = "FILE";
             send(sock, dataType.c_str(), dataType.size(), 0);
-            std::ifstream file(fileMsg, std::ios::binary);
+            std::ifstream file(fileMsg, std::ios::binary | std::ios::ate);
             std::stringstream ss;
+            if (!file.is_open()) {
+                std::cerr << "File open error" << std::endl;
+                return -1;
+            }
+            u_int32_t file_size = file.tellg();
+            file.seekg(0, std::ios::beg); // 파일 포인터를 다시 파일 시작으로 이동
+            // 파일 크기를 네트워크 바이트 순서로 변환
+            u_int32_t data_length = htonl(file_size);
+            // 파일 크기를 서버에 전송
+            send(sock, &data_length, sizeof(data_length), 0);
+
             ss << file.rdbuf();
             if (!ss.eof()) {
                 std::cout << "success" << std::endl;
@@ -98,7 +109,7 @@ int main() {
                     std::cerr << "File read error" << std::endl;
                 }
             }
-
+            
             if (file.is_open()) {
                 std::string file_content = ss.str();
                 send(sock, file_content.c_str(), file_content.size(), 0);
@@ -108,7 +119,7 @@ int main() {
         }
         else if (format == 'n'){
             std::string string_data;
-            u_int32_t data_length;
+            u_int32_t data_length = 0;
             dataType = "TEXT";
             send(sock, dataType.c_str(), dataType.size(), 0);
             
@@ -116,8 +127,7 @@ int main() {
             std::cin >> string_data;
             data_length = htonl(string_data.size());
             send(sock, &data_length, sizeof(data_length), 0);
-            
-            send(sock, string_data.c_str(), sizeof(buffer), 0);
+            send(sock, string_data.c_str(), string_data.size(), 0);
             std::cout << "new message sent" << std::endl;
             valread = read(sock, buffer, 1024);
             std::cout << "Server: " << buffer << std::endl;

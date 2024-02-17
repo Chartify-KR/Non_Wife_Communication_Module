@@ -139,11 +139,11 @@ int NodeWithHub::broadcastIpToNode(void){
     int sockfd;
     struct sockaddr_in broadcastAddr; // 브로드캐스트 주소 구조체
 
-    if (this->nodeInfo.department == PreExamination){
-        this->myIp += ",1";
-    }else{
-        this->myIp += ",2";
-    }
+    // if (this->nodeInfo.department == PreExamination){
+    //     this->myIp += ",1";
+    // }else{
+    //     this->myIp += ",2";
+    // }
     const char* msg = this->myIp.c_str();
     // UDP 소켓 생성
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {

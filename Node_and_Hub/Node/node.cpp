@@ -8,7 +8,7 @@ Node::Node(const std::string& name, const Department& dep, const std::string& my
 }
 
 static int connectDevices(clientInfo &serverInfo, clientInfo &localInfo, clientInfo &hubInfo, std::string &hubIp){
-    int port = 8080;
+    int port = 8081;
     int localSign = 0;
     int hubSign = 0;
 
@@ -63,6 +63,7 @@ int connectToHub(clientInfo &hubinfo, std::string &hubIp){
         hubinfo.address.sin_port = htons(8080);
 
         // Convert IPv4 and IPv6 addresses from text to binary form
+        std::cout << "hub ip: " << hubIp.c_str() << std::endl;
         if (inet_pton(AF_INET, hubIp.c_str(), &hubinfo.address.sin_addr) <= 0) {
             std::cout << "Invalid address/ Address not supported" << std::endl;
             return -1;
@@ -100,6 +101,7 @@ int Node::receiveIpFromHub(void){
         return -1;
     }
     int n = 0;
+
     while (!n) {
         unsigned int len = sizeof(cliaddr); // 클라이언트 주소의 길이
         // 데이터 수신

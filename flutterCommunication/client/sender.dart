@@ -38,7 +38,7 @@ Future<void> sendFileOverSocket(String filePath, String host, int port) async {
 
 void main() async {
   var filePath = './data/maroon5';
-  var host = '127.0.0.1';
+  var host = '10.50.33.204';
   var port = 8081; // 예시 포트 번호
 
   await sendFileOverSocket(filePath, host, port);
